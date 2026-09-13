@@ -36,13 +36,24 @@ def test_env_cfg_rejects_malformed_euler_authority() -> None:
         EnvCfg(euler_go2_worker_command=[]).validate()
     with pytest.raises(ValueError, match="euler_go2_worker_command"):
         EnvCfg(euler_go2_worker_command=["worker", 7]).validate()  # type: ignore[list-item]
+    with pytest.raises(ValueError, match="euler_go2_asset_root"):
+        EnvCfg(euler_go2_asset_root="relative/euler-go2").validate()
 
 
 @pytest.mark.parametrize(
     ("authority", "expected"),
     [
         ({"euler_native_library_path": "/abs/libeuler_unisim_abi.so"}, {"native_library_path": "/abs/libeuler_unisim_abi.so"}),
-        ({"euler_go2_worker_command": ["/abs/euler_unisim_worker", "--go2"]}, {"go2_worker_command": ("/abs/euler_unisim_worker", "--go2")}),
+        (
+            {
+                "euler_go2_worker_command": ["/abs/euler_unisim_worker", "--go2"],
+                "euler_go2_asset_root": "/abs/euler/assets/robots/unitree_go2",
+            },
+            {
+                "go2_worker_command": ("/abs/euler_unisim_worker", "--go2"),
+                "go2_asset_root": "/abs/euler/assets/robots/unitree_go2",
+            },
+        ),
     ],
 )
 def test_factory_routes_exactly_one_euler_authority(
@@ -80,11 +91,17 @@ def test_factory_routes_exactly_one_euler_authority(
     assert set(kwargs) <= {"base_name", "body_state_required", *expected}
     assert "euler_native_library_path" not in kwargs
     assert "euler_go2_worker_command" not in kwargs
+    assert "euler_go2_asset_root" not in kwargs
 
 
 @pytest.mark.parametrize(
     "kwargs",
-    ({}, {"euler_native_library_path": "/abs/lib", "euler_go2_worker_command": ("worker",)}),
+    (
+        {},
+        {"euler_native_library_path": "/abs/lib", "euler_go2_worker_command": ("worker",)},
+        {"euler_go2_worker_command": ("worker",)},
+        {"euler_go2_asset_root": "/abs/euler/assets/robots/unitree_go2"},
+    ),
 )
 def test_factory_rejects_ambiguous_or_missing_euler_authority(kwargs: dict[str, object]) -> None:
     with pytest.raises(ValueError, match="exactly one explicit authority"):

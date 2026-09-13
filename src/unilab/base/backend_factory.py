@@ -89,6 +89,8 @@ def env_backend_kwargs(cfg: "EnvCfg") -> dict[str, Any]:
         result["euler_native_library_path"] = cfg.euler_native_library_path
     if cfg.euler_go2_worker_command is not None:
         result["euler_go2_worker_command"] = tuple(cfg.euler_go2_worker_command)
+    if cfg.euler_go2_asset_root is not None:
+        result["euler_go2_asset_root"] = cfg.euler_go2_asset_root
     return result
 
 
@@ -106,19 +108,32 @@ def create_backend(
         raise ValueError("SceneCfg must be provided")
     euler_native_library_path = kwargs.pop("euler_native_library_path", None)
     euler_go2_worker_command = kwargs.pop("euler_go2_worker_command", None)
+    euler_go2_asset_root = kwargs.pop("euler_go2_asset_root", None)
     if backend_type == "euler":
-        if (euler_native_library_path is None) == (euler_go2_worker_command is None):
+        has_native = euler_native_library_path is not None
+        has_go2 = euler_go2_worker_command is not None or euler_go2_asset_root is not None
+        if has_native == has_go2:
             raise ValueError(
                 "backend_type='euler' requires exactly one explicit authority: "
-                "euler_native_library_path or euler_go2_worker_command"
+                "euler_native_library_path or the euler_go2_worker_command/euler_go2_asset_root pair"
             )
-        if euler_native_library_path is not None:
+        if has_native:
             kwargs["native_library_path"] = euler_native_library_path
         else:
+            if euler_go2_worker_command is None or euler_go2_asset_root is None:
+                raise ValueError(
+                    "backend_type='euler' requires exactly one explicit authority; Go2 requires both euler_go2_worker_command "
+                    "and euler_go2_asset_root"
+                )
             kwargs["go2_worker_command"] = euler_go2_worker_command
-    elif euler_native_library_path is not None or euler_go2_worker_command is not None:
+            kwargs["go2_asset_root"] = euler_go2_asset_root
+    elif (
+        euler_native_library_path is not None
+        or euler_go2_worker_command is not None
+        or euler_go2_asset_root is not None
+    ):
         raise ValueError(
-            "euler_native_library_path and euler_go2_worker_command are valid only "
+            "euler_native_library_path, euler_go2_worker_command, and euler_go2_asset_root are valid only "
             "for backend_type='euler'"
         )
     superdex_assets_root = kwargs.pop("superdex_assets_root", None)
@@ -168,6 +183,7 @@ def create_backend(
             "body_state_required",
             "native_library_path",
             "go2_worker_command",
+            "go2_asset_root",
         }
         kwargs = {name: value for name, value in kwargs.items() if name in allowed_euler_options}
     if backend_type == "genesis" and kwargs.get("genesis_device_id") is not None:
