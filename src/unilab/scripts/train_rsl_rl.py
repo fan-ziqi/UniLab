@@ -573,6 +573,13 @@ def main(cfg: DictConfig) -> None:
         learner_device=device,
     )
     seed_info = apply_configured_training_seed(cfg, torch_runtime=True, cuda=True)
+    # The training seed is also the environment's seed contract.  Without this
+    # explicit handoff, ManagerBasedRlEnv treats its unset seed as a request for
+    # entropy from ``secrets.randbits``; the policy and global RNGs are then
+    # reproducible while reset/domain-randomization trajectories are not.
+    # ``apply_rsl_rl_rank_seed`` above has already derived the rank-local value.
+    if seed_info.effective_seed is not None:
+        env_cfg_override["seed"] = seed_info.effective_seed
 
     # Compute effective max_iterations (supports num_timesteps override)
     max_iterations = cfg.algo.max_iterations

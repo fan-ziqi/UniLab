@@ -795,6 +795,7 @@ def _build_rsl_lifecycle_case(
         "summaries": [],
         "tracker_finish": 0,
         "playback": 0,
+        "env_cfg_overrides": [],
     }
 
     class FakeEnv:
@@ -851,7 +852,11 @@ def _build_rsl_lifecycle_case(
     monkeypatch.setattr(mod, "current_torch_distributed_world_size", lambda: 1)
     monkeypatch.setattr(mod, "ensure_registries", lambda: None)
     monkeypatch.setattr(mod, "apply_rsl_rl_rank_seed", lambda _cfg, _rank: 0)
-    monkeypatch.setattr(mod, "apply_configured_training_seed", lambda *args, **kwargs: {})
+    monkeypatch.setattr(
+        mod,
+        "apply_configured_training_seed",
+        lambda *args, **kwargs: types.SimpleNamespace(effective_seed=17),
+    )
     monkeypatch.setattr(mod, "build_ppo_env_cfg_override", lambda _cfg: {})
     monkeypatch.setattr(mod, "get_default_device", lambda: "cpu")
     monkeypatch.setattr(mod, "resolve_rsl_rl_device", lambda **kwargs: "cpu")
@@ -859,8 +864,9 @@ def _build_rsl_lifecycle_case(
     monkeypatch.setattr(mod, "ExperimentTracker", FakeTracker)
 
     def create_env(*args: Any, **kwargs: Any) -> FakeEnv:
-        del args, kwargs
+        del args
         captured["env_create"] += 1
+        captured["env_cfg_overrides"].append(dict(kwargs["env_cfg_override"]))
         return FakeEnv()
 
     monkeypatch.setattr(mod, "create_env", create_env)
@@ -899,6 +905,7 @@ def test_train_rsl_rl_run_complete_closes_resources_and_skips_playback(
     assert captured["distributed"] == [True]
     assert captured["tracker_finish"] == 1
     assert captured["playback"] == 0
+    assert captured["env_cfg_overrides"] == [{"seed": 17}]
     assert captured["summaries"] == [
         {
             "collected_grasps": 12,
@@ -919,6 +926,7 @@ def test_train_rsl_rl_success_keeps_playback_and_single_cleanup(
     assert captured["distributed"] == [True]
     assert captured["tracker_finish"] == 1
     assert captured["playback"] == 1
+    assert captured["env_cfg_overrides"] == [{"seed": 17}]
     assert captured["summaries"][0]["status"] == "completed"
     assert captured["summaries"][0]["run_env_steps"] == 8
 
