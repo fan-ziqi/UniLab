@@ -265,6 +265,10 @@ def env_backend_kwargs(cfg: "EnvCfg") -> dict[str, Any]:
     if cfg.genesis_device_id is not None:
         result["genesis_device_id"] = cfg.genesis_device_id
     result["newton_use_cuda_graph"] = cfg.newton_use_cuda_graph
+    if cfg.euler_native_library_path is not None:
+        result["euler_native_library_path"] = cfg.euler_native_library_path
+    if cfg.euler_go2_worker_command is not None:
+        result["euler_go2_worker_command"] = tuple(cfg.euler_go2_worker_command)
     return result
 
 
@@ -283,6 +287,23 @@ def create_backend(
     _validate_cuda_only_backend_platform(backend_type, kwargs)
     if backend_type == "isaacsim" and kwargs.get("isaacsim_tensor_cuda_ipc", False):
         _validate_isaacsim_tensor_cuda_ipc_runtime()
+    euler_native_library_path = kwargs.pop("euler_native_library_path", None)
+    euler_go2_worker_command = kwargs.pop("euler_go2_worker_command", None)
+    if backend_type == "euler":
+        if (euler_native_library_path is None) == (euler_go2_worker_command is None):
+            raise ValueError(
+                "backend_type='euler' requires exactly one explicit authority: "
+                "euler_native_library_path or euler_go2_worker_command"
+            )
+        if euler_native_library_path is not None:
+            kwargs["native_library_path"] = euler_native_library_path
+        else:
+            kwargs["go2_worker_command"] = euler_go2_worker_command
+    elif euler_native_library_path is not None or euler_go2_worker_command is not None:
+        raise ValueError(
+            "euler_native_library_path and euler_go2_worker_command are valid only "
+            "for backend_type='euler'"
+        )
     superdex_assets_root = kwargs.pop("superdex_assets_root", None)
     if backend_type == "superdex" and scene.model_file.endswith(".superdex_bot"):
         scene = replace(
