@@ -77,6 +77,7 @@ def test_factory_routes_exactly_one_euler_authority(
     kwargs = captured["kwargs"]
     assert isinstance(kwargs, dict)
     assert expected.items() <= kwargs.items()
+    assert set(kwargs) <= {"base_name", "body_state_required", *expected}
     assert "euler_native_library_path" not in kwargs
     assert "euler_go2_worker_command" not in kwargs
 
