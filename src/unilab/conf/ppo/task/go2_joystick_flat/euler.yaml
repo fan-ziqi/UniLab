@@ -3,7 +3,8 @@
 # The provider is discovered from UniSim's public ``unisim.backends`` group;
 # this file never aliases Euler to another backend.  The authority command is
 # intentionally null in source: each launch must name its reviewed Euler
-# worker explicitly through ``env.euler_go2_worker_command=[...]``.
+# worker and original Euler asset root explicitly through
+# ``env.euler_go2_worker_command=[...]`` and ``env.euler_go2_asset_root=...``.
 defaults:
   - /task/go2_joystick_flat/base
   - _self_
@@ -16,6 +17,7 @@ training:
 
 env:
   euler_go2_worker_command: null
+  euler_go2_asset_root: null
 
 algo:
   num_envs: 64
