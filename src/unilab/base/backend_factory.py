@@ -149,9 +149,10 @@ def create_backend(
         kwargs.pop("superdex_execution_mode", None)
         kwargs.pop("superdex_effort_limits", None)
         kwargs.pop("superdex_allow_contact_approximation", None)
-    ensure_robot_assets_for_paths(
-        [scene.model_file, scene.visual_model_file, *scene.fragment_files]
-    )
+    if backend_type != "euler":
+        ensure_robot_assets_for_paths(
+            [scene.model_file, scene.visual_model_file, *scene.fragment_files]
+        )
     if backend_type != "newton":
         # Keep the owner translation forward-compatible with unisim-core
         # releases that predate the Newton adapter and therefore do not pop
