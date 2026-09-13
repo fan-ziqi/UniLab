@@ -119,6 +119,36 @@ def test_factory_rejects_euler_authority_for_other_backend() -> None:
         )
 
 
+def test_euler_factory_never_hydrates_unilab_robot_assets(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    captured: dict[str, object] = {}
+
+    def fail_if_hydrated(*_args: object) -> None:
+        raise AssertionError("Euler must use its explicit asset root, not UniLab hydration")
+
+    def create(backend_type, scene, num_envs, sim_dt, **kwargs):
+        captured.update(backend_type=backend_type, scene=scene, kwargs=kwargs)
+        return SimpleNamespace()
+
+    monkeypatch.setattr(backend_factory, "ensure_robot_assets_for_paths", fail_if_hydrated)
+    monkeypatch.setattr(backend_factory.unisim, "create_backend", create)
+    backend_factory.create_backend(
+        "euler",
+        SceneCfg(model_file="go2_scene.xml"),
+        64,
+        0.01,
+        euler_go2_worker_command=("/abs/euler_unisim_worker",),
+        euler_go2_asset_root="/abs/euler/assets/robots/unitree_go2",
+    )
+    assert captured["backend_type"] == "euler"
+    assert captured["kwargs"] == {
+        "body_state_required": False,
+        "go2_worker_command": ("/abs/euler_unisim_worker",),
+        "go2_asset_root": "/abs/euler/assets/robots/unitree_go2",
+    }
+
+
 def test_cli_admits_only_discovered_third_party_backend(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(cli, "available_sims", lambda: (*cli.SUPPORTED_SIMS, "euler"))
     cli._check_runtime_requirements("ppo", "euler")
