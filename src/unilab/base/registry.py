@@ -68,6 +68,31 @@ _REGISTRY_ENTRY_POINT_GROUP = "unilab.tasks"
 logger = logging.getLogger(__name__)
 
 
+def _is_declared_third_party_backend(sim_backend: str) -> bool:
+    """Return whether UniSim's public plugin registry declares ``sim_backend``.
+
+    This is a cold-path registration check, not a backend construction path.
+    UniLab deliberately asks only UniSim's public discovery API; a package may
+    register an environment mapping for a third-party backend only when that
+    backend is actually installed and has passed UniSim's versioned provider
+    validation.  Unknown names remain errors instead of becoming an adapter
+    fallback or a deferred typo.
+    """
+    try:
+        import unisim
+
+        discover_backends = unisim.discover_backends
+    except (ImportError, AttributeError):
+        return False
+    if not callable(discover_backends):
+        return False
+    return any(registration.name == sim_backend for registration in discover_backends())
+
+
+def _is_supported_sim_backend(sim_backend: str) -> bool:
+    return sim_backend in _SUPPORTED_SIM_BACKENDS or _is_declared_third_party_backend(sim_backend)
+
+
 @dataclass
 class EnvMeta:
     env_cfg_factory: EnvCfgFactory
@@ -152,10 +177,11 @@ def materialize_env_config(name: str) -> EnvCfg:
 
 def register_env(name: str, env_factory: TEnvFactory, sim_backend: str) -> TEnvFactory:
     """Register and return an environment class or function factory."""
-    if sim_backend not in _SUPPORTED_SIM_BACKENDS:
+    if not _is_supported_sim_backend(sim_backend):
         raise ValueError(
             f"Unsupported simulation backend: {sim_backend}. "
-            f"Supported backends: {', '.join(_SUPPORTED_SIM_BACKENDS)}."
+            "Install a UniSim third-party provider before registering its task mapping; "
+            f"built-in backends: {', '.join(_SUPPORTED_SIM_BACKENDS)}."
         )
 
     if name not in _envs:

@@ -98,6 +98,13 @@ class EnvCfg:
     isaacsim_render_mode: Optional[str] = None
     isaacsim_render_width: int = 1280
     isaacsim_render_height: int = 720
+    # Euler is a third-party UniSim provider.  Its authority is deliberately
+    # config-owned and explicit: a generic model uses one native ABI library,
+    # while the admitted Go2 profile uses one Euler worker command.  Neither
+    # value has an environment/default fallback and the owner forwards them
+    # only for backend_type="euler".
+    euler_native_library_path: Optional[str] = None
+    euler_go2_worker_command: Optional[list[str]] = None
 
     @property
     def max_episode_steps(self) -> Optional[int]:
@@ -233,6 +240,16 @@ class EnvCfg:
                 "isaacsim_worker_timeout_s must be a positive number or None, "
                 f"got {self.isaacsim_worker_timeout_s!r}"
             )
+        if self.euler_native_library_path is not None and (
+            not isinstance(self.euler_native_library_path, str)
+            or not self.euler_native_library_path.strip()
+        ):
+            raise ValueError("euler_native_library_path must be a non-empty string or None")
+        if self.euler_go2_worker_command is not None:
+            if not isinstance(self.euler_go2_worker_command, list) or not self.euler_go2_worker_command:
+                raise ValueError("euler_go2_worker_command must be a non-empty list of strings or None")
+            if any(not isinstance(item, str) or not item.strip() for item in self.euler_go2_worker_command):
+                raise ValueError("euler_go2_worker_command must be a non-empty list of strings or None")
         if self.isaacsim_render_mode is not None:
             mode = str(self.isaacsim_render_mode).strip().lower()
             if mode not in {"auto", "interactive", "record", "none"}:

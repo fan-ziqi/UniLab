@@ -46,6 +46,20 @@ TASK_NAME_PATTERN = re.compile(r"^[A-Za-z0-9_][A-Za-z0-9_-]*$")
 RUN_ID_PATTERN = re.compile(r"^[A-Za-z0-9_.-]+$")
 
 
+def available_sims() -> tuple[str, ...]:
+    """Return built-ins plus installed, validated UniSim third-party backends."""
+    try:
+        import unisim
+
+        discover_backends = unisim.discover_backends
+    except (ImportError, AttributeError):
+        return SUPPORTED_SIMS
+    if not callable(discover_backends):
+        return SUPPORTED_SIMS
+    discovered = tuple(registration.name for registration in discover_backends())
+    return (*SUPPORTED_SIMS, *(name for name in discovered if name not in SUPPORTED_SIMS))
+
+
 @dataclass(frozen=True)
 class Route:
     script_name: str
@@ -109,6 +123,13 @@ def _check_load_run(load_run: str) -> None:
 
 
 def _check_runtime_requirements(algo: str, sim: str) -> None:
+    del algo
+    if sim not in SUPPORTED_SIMS:
+        if sim not in available_sims():
+            raise SystemExit(
+                f"sim={sim} is not an installed, validated UniSim third-party backend"
+            )
+        return
     # The MuJoCo physics backend (unisim.backend.mujoco.backend) needs the
     # mujoco-uni-runtime native binding; plain `mujoco` can also arrive via
     # other extras (e.g. superdex), so gate on `mujoco_uni` here.
@@ -325,7 +346,7 @@ def _eval_fallback_owner(route: Route, root: Path, *, sim: str, profile: str | N
     and validated by the runtime sim2sim preflight against the source run.
     """
     task_dir = _owner_yaml_path(route, root).parent
-    for candidate_sim in SUPPORTED_SIMS:
+    for candidate_sim in available_sims():
         if candidate_sim == sim:
             continue
         owner = f"{candidate_sim}_{profile}" if profile is not None else candidate_sim
@@ -479,7 +500,7 @@ def _train_eval_parser(*, mode: str) -> argparse.ArgumentParser:
         ),
     )
     parser.add_argument("--task", required=True)
-    parser.add_argument("--sim", required=True, choices=SUPPORTED_SIMS)
+    parser.add_argument("--sim", required=True, choices=available_sims())
     parser.add_argument("--profile", default=None)
     parser.add_argument("--render-mode", choices=SUPPORTED_RENDER_MODES, default=None)
     if mode == "eval":
