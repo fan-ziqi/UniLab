@@ -156,6 +156,20 @@ def create_backend(
         "newton",
         "superdex",
     }
+    if backend_type == "euler":
+        # The generic EnvCfg carries knobs for every built-in UniSim adapter.
+        # Euler is discovered separately and must not receive another
+        # backend's settings by accident: its public provider owns a compact,
+        # explicit authority contract and rejects unknown options.  Retain
+        # only data that belongs to the common SimBackend call plus the one
+        # authority selected above.
+        allowed_euler_options = {
+            "base_name",
+            "body_state_required",
+            "native_library_path",
+            "go2_worker_command",
+        }
+        kwargs = {name: value for name, value in kwargs.items() if name in allowed_euler_options}
     if backend_type == "genesis" and kwargs.get("genesis_device_id") is not None:
         # Bind before any unisim-core Genesis constructor can call gs.init.
         # New unisim-core releases repeat this idempotently; old releases do
