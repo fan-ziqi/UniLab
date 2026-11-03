@@ -1769,11 +1769,17 @@ def test_public_names_are_spelling_only_aliases() -> None:
     assert make_manager_based_rl_env is manager_env_module.make_manager_based_rl_env
 
 
-@pytest.mark.parametrize("backend_type", ["mujoco", "mjwarp"])
+@pytest.mark.parametrize("backend_type", ["mujoco", "mjwarp", "external_test_backend"])
 def test_generic_factory_routes_only_public_backend_contract(
     monkeypatch: pytest.MonkeyPatch,
     backend_type: str,
 ) -> None:
+    import unilab.base.registry as registry
+
+    monkeypatch.setattr(
+        registry, "_is_declared_third_party_backend",
+        lambda name: name == "external_test_backend",
+    )
     cfg = _make_cfg(include_optional_managers=False)
     assert cfg.scene is not None
     cfg.scene.entities["robot"] = EntityCfg(
@@ -1828,6 +1834,22 @@ def test_generic_factory_routes_only_public_backend_contract(
     assert "add_body_sensors" not in kwargs
     for key, value in env_backend_kwargs(cfg).items():
         assert kwargs[key] == value
+
+
+def test_generic_factory_rejects_undeclared_backend_before_construction(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import unilab.base.registry as registry
+
+    monkeypatch.setattr(registry, "_is_declared_third_party_backend", lambda _name: False)
+
+    def unexpected_construction(*args: Any, **kwargs: Any) -> Any:
+        raise AssertionError("An undeclared provider must not allocate backend resources")
+
+    monkeypatch.setattr(manager_env_module, "create_backend", unexpected_construction)
+    cfg = _make_cfg(include_optional_managers=False)
+    with pytest.raises(ValueError, match="or an installed UniSim provider"):
+        make_manager_based_rl_env(cfg, num_envs=3, backend_type="external_test_backend")
 
 
 @pytest.mark.parametrize(
