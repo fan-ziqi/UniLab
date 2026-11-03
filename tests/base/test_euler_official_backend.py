@@ -33,28 +33,14 @@ def test_registry_admits_only_declared_third_party_backend(monkeypatch: pytest.M
 def test_env_cfg_rejects_malformed_euler_authority() -> None:
     with pytest.raises(ValueError, match="euler_native_library_path"):
         EnvCfg(euler_native_library_path=" ").validate()
-    with pytest.raises(ValueError, match="euler_go2_worker_command"):
-        EnvCfg(euler_go2_worker_command=[]).validate()
-    with pytest.raises(ValueError, match="euler_go2_worker_command"):
-        EnvCfg(euler_go2_worker_command=["worker", 7]).validate()  # type: ignore[list-item]
-    with pytest.raises(ValueError, match="euler_go2_asset_root"):
-        EnvCfg(euler_go2_asset_root="relative/euler-go2").validate()
+    with pytest.raises(ValueError, match="euler_native_library_path"):
+        EnvCfg(euler_native_library_path=7).validate()  # type: ignore[arg-type]
 
 
 @pytest.mark.parametrize(
     ("authority", "expected"),
     [
         ({"euler_native_library_path": "/abs/libeuler_unisim_abi.so"}, {"native_library_path": "/abs/libeuler_unisim_abi.so"}),
-        (
-            {
-                "euler_go2_worker_command": ["/abs/euler_unisim_worker", "--go2"],
-                "euler_go2_asset_root": "/abs/euler/assets/robots/unitree_go2",
-            },
-            {
-                "go2_worker_command": ("/abs/euler_unisim_worker", "--go2"),
-                "go2_asset_root": "/abs/euler/assets/robots/unitree_go2",
-            },
-        ),
     ],
 )
 def test_factory_routes_exactly_one_euler_authority(
@@ -91,22 +77,18 @@ def test_factory_routes_exactly_one_euler_authority(
     assert expected.items() <= kwargs.items()
     assert set(kwargs) <= {"base_name", "body_state_required", *expected}
     assert "euler_native_library_path" not in kwargs
-    assert "euler_go2_worker_command" not in kwargs
-    assert "euler_go2_asset_root" not in kwargs
 
 
-@pytest.mark.parametrize(
-    "kwargs",
-    (
-        {},
-        {"euler_native_library_path": "/abs/lib", "euler_go2_worker_command": ("worker",)},
-        {"euler_go2_worker_command": ("worker",)},
-        {"euler_go2_asset_root": "/abs/euler/assets/robots/unitree_go2"},
-    ),
-)
-def test_factory_rejects_ambiguous_or_missing_euler_authority(kwargs: dict[str, object]) -> None:
-    with pytest.raises(ValueError, match="exactly one explicit authority"):
-        backend_factory.create_backend("euler", SceneCfg(model_file="scene.xml"), 1, 0.01, **kwargs)
+def test_factory_requires_the_common_native_library() -> None:
+    with pytest.raises(ValueError, match="requires explicit euler_native_library_path"):
+        backend_factory.create_backend("euler", SceneCfg(model_file="scene.xml"), 1, 0.01)
+
+
+def test_removed_worker_options_fail_closed() -> None:
+    with pytest.raises(TypeError, match="unknown Euler options"):
+        backend_factory.create_backend("euler", SceneCfg(model_file="scene.xml"), 1, 0.01,
+                                       euler_native_library_path="/abs/lib",
+                                       euler_go2_worker_command=("worker",))
 
 
 def test_factory_rejects_euler_authority_for_other_backend() -> None:
@@ -139,14 +121,12 @@ def test_euler_factory_never_hydrates_unilab_robot_assets(
         SceneCfg(model_file="go2_scene.xml"),
         64,
         0.01,
-        euler_go2_worker_command=("/abs/euler_unisim_worker",),
-        euler_go2_asset_root="/abs/euler/assets/robots/unitree_go2",
+        euler_native_library_path="/abs/libeuler.so",
     )
     assert captured["backend_type"] == "euler"
     assert captured["kwargs"] == {
         "body_state_required": False,
-        "go2_worker_command": ("/abs/euler_unisim_worker",),
-        "go2_asset_root": "/abs/euler/assets/robots/unitree_go2",
+        "native_library_path": "/abs/libeuler.so",
     }
 
 

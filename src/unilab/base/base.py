@@ -1,5 +1,4 @@
 import abc
-import os
 import warnings
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
@@ -109,14 +108,8 @@ class EnvCfg:
     # Mapped IsaacSim scenes may need a grid wider than the worker default when
     # an owner uses a large task-local support surface. ``None`` keeps 2 m.
     isaacsim_env_spacing: Optional[float] = None
-    # Euler is a third-party UniSim provider.  Its authority is deliberately
-    # config-owned and explicit: a generic model uses one native ABI library,
-    # while the admitted Go2 profile uses an Euler worker plus the explicit,
-    # byte-pinned Euler asset root.  Neither value has an environment/default
-    # fallback and the owner forwards them only for backend_type="euler".
+    # Every Euler model uses the same explicitly selected native ABI library.
     euler_native_library_path: Optional[str] = None
-    euler_go2_worker_command: Optional[list[str]] = None
-    euler_go2_asset_root: Optional[str] = None
 
     @property
     def max_episode_steps(self) -> Optional[int]:
@@ -268,19 +261,6 @@ class EnvCfg:
             or not self.euler_native_library_path.strip()
         ):
             raise ValueError("euler_native_library_path must be a non-empty string or None")
-        if self.euler_go2_worker_command is not None:
-            if not isinstance(self.euler_go2_worker_command, list) or not self.euler_go2_worker_command:
-                raise ValueError("euler_go2_worker_command must be a non-empty list of strings or None")
-            if any(not isinstance(item, str) or not item.strip() for item in self.euler_go2_worker_command):
-                raise ValueError("euler_go2_worker_command must be a non-empty list of strings or None")
-        if self.euler_go2_asset_root is not None and (
-            not isinstance(self.euler_go2_asset_root, str)
-            or not self.euler_go2_asset_root.strip()
-            or not os.path.isabs(self.euler_go2_asset_root)
-        ):
-            raise ValueError(
-                "euler_go2_asset_root must be an absolute non-empty string or None"
-            )
         if self.isaacsim_render_mode is not None:
             mode = str(self.isaacsim_render_mode).strip().lower()
             if mode not in {"auto", "interactive", "record", "none"}:
