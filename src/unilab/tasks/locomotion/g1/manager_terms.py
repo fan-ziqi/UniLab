@@ -11,7 +11,6 @@ from __future__ import annotations
 
 import math
 import time
-from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, ClassVar, Protocol, cast
 from weakref import WeakKeyDictionary
@@ -99,7 +98,7 @@ def _real(
 
 
 def _weights(term: str, name: str, value: Any) -> torch.Tensor:
-    if isinstance(value, (str, bytes)) or not isinstance(value, Sequence):
+    if isinstance(value, (str, bytes)) or not isinstance(value, (tuple, list)):
         raise TypeError(f"{term} {name} must be a sequence of real numbers")
     result = torch.tensor(
         [_real(term, f"{name}[{index}]", item) for index, item in enumerate(value)],
@@ -839,13 +838,10 @@ class upper_body_pose(weighted_pose):
     """Weighted L2 pose penalty with the twelve leg joints zeroed out."""
 
     def __init__(self, cfg: RewardTermCfg, env: ManagerBasedRlEnv):
-        weights = _weights(self.name, "pose_weights", cfg.params["pose_weights"])
-        if weights.numel() < 12:
-            raise ValueError(f"{self.name} pose_weights must cover at least the twelve leg joints")
-        weights = weights.clone()
-        weights[:12] = 0.0
-        cfg.params["pose_weights"] = weights
         super().__init__(cfg, env)
+        if self._weights.numel() < 12:
+            raise ValueError(f"{self.name} pose_weights must cover at least the twelve leg joints")
+        self._weights[:12] = 0.0
 
 
 # ---------------------------------------------------------------------------

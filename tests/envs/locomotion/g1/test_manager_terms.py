@@ -25,13 +25,13 @@ from unilab.tasks.locomotion.g1.manager_terms import (
 pytestmark = pytest.mark.slow
 
 
-def test_pose_weights_accept_hydra_lists_and_preserve_scalar_validation():
-    from omegaconf import OmegaConf
-
-    actual = g1_terms._weights("pose", "pose_weights", OmegaConf.create([0.01, 1.0, 5.0]))
-    torch.testing.assert_close(actual, torch.tensor([0.01, 1.0, 5.0]))
-    with pytest.raises(TypeError, match="must be a real number"):
-        g1_terms._weights("pose", "pose_weights", OmegaConf.create([True]))
+def test_upper_body_pose_excludes_legs_without_mutating_owner_configuration():
+    weights = [1.0] * 12 + [0.1, 2.0]
+    cfg = RewardTermCfg(func=g1_terms.upper_body_pose, weight=1.0, params={"pose_weights": weights})
+    env = SimpleNamespace(num_envs=2, device=torch.device("cpu"))
+    term = g1_terms.upper_body_pose(cfg, cast(Any, env))
+    torch.testing.assert_close(term._weights, torch.tensor([0.0] * 12 + [0.1, 2.0]))
+    assert cfg.params["pose_weights"] == weights
 
 
 def _fake_scene(sensor_data: dict[str, np.ndarray]) -> Any:
