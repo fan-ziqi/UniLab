@@ -19,7 +19,8 @@ def test_registry_admits_only_declared_third_party_backend(monkeypatch: pytest.M
         registry.register_env_config(name, EnvCfg)
 
     monkeypatch.setattr(registry, "_is_declared_third_party_backend", lambda backend: backend == "euler")
-    factory = lambda cfg, *, num_envs=1, backend_type="euler": None
+    def factory(cfg, *, num_envs=1, backend_type="euler"):
+        return None
     registry.register_env(name, factory, "euler")
 
     unknown = "_EulerUndeclaredRegistryTest"
