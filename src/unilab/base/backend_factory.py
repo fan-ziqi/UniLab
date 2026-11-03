@@ -267,6 +267,8 @@ def env_backend_kwargs(cfg: "EnvCfg") -> dict[str, Any]:
     result["newton_use_cuda_graph"] = cfg.newton_use_cuda_graph
     if cfg.euler_native_library_path is not None:
         result["euler_native_library_path"] = cfg.euler_native_library_path
+    if cfg.euler_mjcf_resource_root is not None:
+        result["euler_mjcf_resource_root"] = cfg.euler_mjcf_resource_root
     return result
 
 
@@ -286,6 +288,7 @@ def create_backend(
     if backend_type == "isaacsim" and kwargs.get("isaacsim_tensor_cuda_ipc", False):
         _validate_isaacsim_tensor_cuda_ipc_runtime()
     euler_native_library_path = kwargs.pop("euler_native_library_path", None)
+    euler_mjcf_resource_root = kwargs.pop("euler_mjcf_resource_root", None)
     unknown_euler = sorted(key for key in kwargs if key.startswith("euler_"))
     if unknown_euler:
         raise TypeError(f"unknown Euler options: {', '.join(unknown_euler)}")
@@ -293,8 +296,12 @@ def create_backend(
         if euler_native_library_path is None:
             raise ValueError("backend_type='euler' requires explicit euler_native_library_path")
         kwargs["native_library_path"] = euler_native_library_path
+        if euler_mjcf_resource_root is not None:
+            kwargs["mjcf_resource_root"] = euler_mjcf_resource_root
     elif euler_native_library_path is not None:
         raise ValueError("euler_native_library_path is valid only for backend_type='euler'")
+    elif euler_mjcf_resource_root is not None:
+        raise ValueError("euler_mjcf_resource_root is valid only for backend_type='euler'")
     superdex_assets_root = kwargs.pop("superdex_assets_root", None)
     if backend_type == "superdex" and scene.model_file.endswith(".superdex_bot"):
         scene = replace(
@@ -335,12 +342,13 @@ def create_backend(
         # Euler is discovered separately and must not receive another
         # backend's settings by accident: its public provider owns a compact,
         # explicit authority contract and rejects unknown options.  Retain
-        # only data that belongs to the common SimBackend call plus the one
+        # only data that belongs to the common SimBackend call plus explicit
         # authority selected above.
         allowed_euler_options = {
             "base_name",
             "body_state_required",
             "native_library_path",
+            "mjcf_resource_root",
         }
         kwargs = {name: value for name, value in kwargs.items() if name in allowed_euler_options}
     if backend_type == "genesis" and kwargs.get("genesis_device_id") is not None:

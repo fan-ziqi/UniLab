@@ -110,6 +110,8 @@ class EnvCfg:
     isaacsim_env_spacing: Optional[float] = None
     # Every Euler model uses the same explicitly selected native ABI library.
     euler_native_library_path: Optional[str] = None
+    # Caller-granted MJCF authority; omission never widens the provider's root.
+    euler_mjcf_resource_root: Optional[str] = None
 
     @property
     def max_episode_steps(self) -> Optional[int]:
@@ -261,6 +263,11 @@ class EnvCfg:
             or not self.euler_native_library_path.strip()
         ):
             raise ValueError("euler_native_library_path must be a non-empty string or None")
+        if self.euler_mjcf_resource_root is not None and (
+            not isinstance(self.euler_mjcf_resource_root, str)
+            or not self.euler_mjcf_resource_root.strip()
+        ):
+            raise ValueError("euler_mjcf_resource_root must be a non-empty string or None")
         if self.isaacsim_render_mode is not None:
             mode = str(self.isaacsim_render_mode).strip().lower()
             if mode not in {"auto", "interactive", "record", "none"}:

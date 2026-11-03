@@ -10,3 +10,4 @@ training:
 
 env:
   euler_native_library_path: null
+  euler_mjcf_resource_root: null

@@ -37,13 +37,30 @@ def test_env_cfg_rejects_malformed_euler_authority() -> None:
         EnvCfg(euler_native_library_path=7).validate()  # type: ignore[arg-type]
 
 
+@pytest.mark.parametrize("root", ["", " ", 7, False])
+def test_env_cfg_rejects_malformed_euler_resource_root(root: object) -> None:
+    with pytest.raises(ValueError, match="euler_mjcf_resource_root"):
+        EnvCfg(euler_mjcf_resource_root=root).validate()  # type: ignore[arg-type]
+
+
+def test_absent_euler_resource_root_is_not_forwarded() -> None:
+    cfg = EnvCfg()
+    cfg.validate()
+    assert cfg.euler_mjcf_resource_root is None
+    assert "euler_mjcf_resource_root" not in backend_factory.env_backend_kwargs(cfg)
+
+
 @pytest.mark.parametrize(
     ("authority", "expected"),
     [
         ({"euler_native_library_path": "/abs/libeuler_unisim_abi.so"}, {"native_library_path": "/abs/libeuler_unisim_abi.so"}),
+        (
+            {"euler_native_library_path": "/abs/libeuler.so", "euler_mjcf_resource_root": "/caller/root"},
+            {"native_library_path": "/abs/libeuler.so", "mjcf_resource_root": "/caller/root"},
+        ),
     ],
 )
-def test_factory_routes_exactly_one_euler_authority(
+def test_factory_routes_only_explicit_euler_authority(
     monkeypatch: pytest.MonkeyPatch, authority: dict[str, object], expected: dict[str, object]
 ) -> None:
     captured: dict[str, object] = {}
@@ -62,14 +79,16 @@ def test_factory_routes_exactly_one_euler_authority(
     monkeypatch.setattr(backend_factory.unisim, "create_backend", create)
     cfg = EnvCfg(**authority)
     cfg.validate()
+    scene = SceneCfg(model_file="Euler-owned-go2.xml")
     backend_factory.create_backend(
         "euler",
-        SceneCfg(model_file="Euler-owned-go2.xml"),
+        scene,
         64,
         0.01,
         **backend_factory.env_backend_kwargs(cfg),
     )
     assert captured["backend_type"] == "euler"
+    assert captured["scene"] is scene
     assert captured["num_envs"] == 64
     assert captured["sim_dt"] == 0.01
     kwargs = captured["kwargs"]
@@ -77,6 +96,7 @@ def test_factory_routes_exactly_one_euler_authority(
     assert expected.items() <= kwargs.items()
     assert set(kwargs) <= {"base_name", "body_state_required", *expected}
     assert "euler_native_library_path" not in kwargs
+    assert "euler_mjcf_resource_root" not in kwargs
 
 
 def test_factory_requires_the_common_native_library() -> None:
@@ -99,6 +119,22 @@ def test_factory_rejects_euler_authority_for_other_backend() -> None:
             1,
             0.01,
             euler_native_library_path="/abs/lib",
+        )
+
+
+@pytest.mark.parametrize("backend", ["mujoco", "motrix"])
+def test_factory_rejects_euler_resource_root_before_other_backend_creation(
+    monkeypatch: pytest.MonkeyPatch, backend: str,
+) -> None:
+    def unexpected(*args, **kwargs):
+        pytest.fail("Euler resource authority must not reach another backend")
+
+    monkeypatch.setattr(backend_factory.unisim, "create_backend", unexpected)
+    monkeypatch.setattr(backend_factory, "ensure_robot_assets_for_paths", unexpected)
+    with pytest.raises(ValueError, match="euler_mjcf_resource_root is valid only"):
+        backend_factory.create_backend(
+            backend, SceneCfg(model_file="scene.xml"), 1, 0.01,
+            euler_mjcf_resource_root="/caller/root",
         )
 
 
