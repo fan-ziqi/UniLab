@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import math
 import time
+from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, ClassVar, Protocol, cast
 from weakref import WeakKeyDictionary
@@ -98,7 +99,7 @@ def _real(
 
 
 def _weights(term: str, name: str, value: Any) -> torch.Tensor:
-    if isinstance(value, (str, bytes)) or not isinstance(value, (tuple, list)):
+    if isinstance(value, (str, bytes)) or not isinstance(value, Sequence):
         raise TypeError(f"{term} {name} must be a sequence of real numbers")
     result = torch.tensor(
         [_real(term, f"{name}[{index}]", item) for index, item in enumerate(value)],

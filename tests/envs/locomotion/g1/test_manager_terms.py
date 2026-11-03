@@ -25,6 +25,15 @@ from unilab.tasks.locomotion.g1.manager_terms import (
 pytestmark = pytest.mark.slow
 
 
+def test_pose_weights_accept_hydra_lists_and_preserve_scalar_validation():
+    from omegaconf import OmegaConf
+
+    actual = g1_terms._weights("pose", "pose_weights", OmegaConf.create([0.01, 1.0, 5.0]))
+    torch.testing.assert_close(actual, torch.tensor([0.01, 1.0, 5.0]))
+    with pytest.raises(TypeError, match="must be a real number"):
+        g1_terms._weights("pose", "pose_weights", OmegaConf.create([True]))
+
+
 def _fake_scene(sensor_data: dict[str, np.ndarray]) -> Any:
     class _Scene(dict):
         def __init__(self) -> None:
